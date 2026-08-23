@@ -26,7 +26,19 @@ const toDateTimeInput = (dateValue: string) => {
 }
 
 const fromDateTimeInput = (dateValue: string) => (dateValue ? new Date(dateValue).toISOString() : '')
-const toDateInput = (dateValue: string) => toDateTimeInput(dateValue).slice(0, 10)
+
+const toDateInput = (dateValue: string) => {
+  const date = new Date(dateValue)
+
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+
+  const timezoneOffset = date.getTimezoneOffset() * 60000
+
+  return new Date(date.getTime() - timezoneOffset).toISOString().slice(0, 10)
+}
+
 const fromDateInput = (dateValue: string) => (dateValue ? new Date(`${dateValue}T00:00:00`).toISOString() : '')
 const NOTIFICATION_CACHE_KEY = 'webcal-fired-reminders'
 
@@ -136,20 +148,40 @@ export default function CalendarView() {
 
       setEventRecords(loadedEvents)
       setEvents(
-        loadedEvents.flatMap(expandRecurringEvent).map((event) => ({
-          id: event.id,
-          title: event.title,
-          start: event.start_date,
-          end: event.end_date,
-          allDay: event.all_day,
-          extendedProps: {
-            description: event.description,
-            location: event.location,
-          },
-          backgroundColor: event.color ?? '#3b82f6',
-          borderColor: event.color ?? '#2563eb',
-          textColor: '#ffffff',
-        })),
+        loadedEvents.flatMap(expandRecurringEvent).map((event) => {
+          let start: string = event.start_date
+          let end: string | undefined = event.end_date
+
+          if (event.all_day) {
+            const startDateStr = toDateInput(event.start_date)
+            const endDateStr = toDateInput(event.end_date)
+            start = startDateStr
+
+            if (startDateStr === endDateStr || !endDateStr) {
+              end = undefined
+            } else {
+              const nextDay = new Date(`${endDateStr}T00:00:00`)
+              nextDay.setDate(nextDay.getDate() + 1)
+              end = toDateInput(nextDay.toISOString())
+            }
+          }
+
+          return {
+            id: event.id,
+            title: event.title,
+            start,
+            end,
+            allDay: event.all_day,
+            extendedProps: {
+              description: event.description,
+              location: event.location,
+              original_event_id: (event as { original_event_id?: string }).original_event_id,
+            },
+            backgroundColor: event.color ?? '#3b82f6',
+            borderColor: event.color ?? '#2563eb',
+            textColor: '#ffffff',
+          }
+        }),
       )
     } finally {
       setIsRefreshing(false)
@@ -166,14 +198,33 @@ export default function CalendarView() {
     }
 
     setFormError(null)
+
+    let startIso: string
+    let endIso: string
+
+    if (selectionInfo.allDay) {
+      const year = selectionInfo.start.getFullYear()
+      const month = selectionInfo.start.getMonth()
+      const day = selectionInfo.start.getDate()
+
+      const defaultStart = new Date(year, month, day, 9, 0, 0, 0)
+      const defaultEnd = new Date(year, month, day, 10, 0, 0, 0)
+
+      startIso = defaultStart.toISOString()
+      endIso = defaultEnd.toISOString()
+    } else {
+      startIso = selectionInfo.start.toISOString()
+      endIso = selectionInfo.end.toISOString()
+    }
+
     setEditingEvent({
       id: '',
       title: 'Novo evento',
-      description: 'Evento criado no calendário',
+      description: '',
       location: '',
-      all_day: selectionInfo.allDay,
-      start_date: selectionInfo.start.toISOString(),
-      end_date: selectionInfo.end.toISOString(),
+      all_day: false,
+      start_date: startIso,
+      end_date: endIso,
       color: '#2563eb',
       label: 'Agenda',
       reminder_minutes: 10,
@@ -327,6 +378,93 @@ export default function CalendarView() {
     await loadEvents()
   }
 
+  const handleAllDayToggle = (checked: boolean) => {
+    if (!editingEvent) {
+      return
+    }
+
+    if (checked) {
+      const dateStr = toDateInput(editingEvent.start_date) || new Date().toISOString().slice(0, 10)
+      setEditingEvent({
+        ...editingEvent,
+        all_day: true,
+        start_date: fromDateInput(dateStr),
+        end_date: fromDateInput(dateStr),
+      })
+    } else {
+      const baseDate = new Date(editingEvent.start_date)
+      const year = Number.isNaN(baseDate.getFullYear()) ? new Date().getFullYear() : baseDate.getFullYear()
+      const month = Number.isNaN(baseDate.getMonth()) ? new Date().getMonth() : baseDate.getMonth()
+      const day = Number.isNaN(baseDate.getDate()) ? new Date().getDate() : baseDate.getDate()
+
+      const newStart = new Date(year, month, day, 9, 0, 0, 0)
+      const newEnd = new Date(year, month, day, 10, 0, 0, 0)
+
+      setEditingEvent({
+        ...editingEvent,
+        all_day: false,
+        start_date: newStart.toISOString(),
+        end_date: newEnd.toISOString(),
+      })
+    }
+  }
+
+  const handleStartDateChange = (val: string) => {
+    if (!editingEvent) {
+      return
+    }
+
+    if (editingEvent.all_day) {
+      const newStartIso = fromDateInput(val)
+      const endDateVal = toDateInput(editingEvent.end_date)
+      let newEndIso = editingEvent.end_date
+
+      if (!endDateVal || val > endDateVal) {
+        newEndIso = newStartIso
+      }
+
+      setEditingEvent({
+        ...editingEvent,
+        start_date: newStartIso,
+        end_date: newEndIso,
+      })
+    } else {
+      const newStartIso = fromDateTimeInput(val)
+      const newStartObj = new Date(newStartIso)
+      const oldEndObj = new Date(editingEvent.end_date)
+      let newEndIso = editingEvent.end_date
+
+      if (Number.isNaN(oldEndObj.getTime()) || oldEndObj <= newStartObj) {
+        const autoEnd = new Date(newStartObj.getTime() + 60 * 60 * 1000)
+        newEndIso = autoEnd.toISOString()
+      }
+
+      setEditingEvent({
+        ...editingEvent,
+        start_date: newStartIso,
+        end_date: newEndIso,
+      })
+    }
+  }
+
+  const handleEndDateChange = (val: string) => {
+    if (!editingEvent) {
+      return
+    }
+
+    if (editingEvent.all_day) {
+      setEditingEvent({
+        ...editingEvent,
+        end_date: fromDateInput(val),
+      })
+    } else {
+      setEditingEvent({
+        ...editingEvent,
+        end_date: fromDateTimeInput(val),
+      })
+    }
+  }
+
   const handleEventSubmit = async (submitEvent: FormEvent<HTMLFormElement>) => {
     submitEvent.preventDefault()
 
@@ -342,20 +480,24 @@ export default function CalendarView() {
     const reminderMinutes = Number(editingEvent.reminder_minutes ?? 0)
     const startDate = new Date(editingEvent.start_date)
     const endDate = new Date(editingEvent.end_date)
-    const isSameDayAllDayEvent = editingEvent.all_day && endDate.getTime() >= startDate.getTime()
 
-    if (
-      Number.isNaN(startDate.getTime()) ||
-      Number.isNaN(endDate.getTime()) ||
-      (!editingEvent.all_day && endDate <= startDate) ||
-      (editingEvent.all_day && !isSameDayAllDayEvent && endDate < startDate)
-    ) {
-      setFormError(
-        editingEvent.all_day
-          ? 'Informe datas válidas. Para evento do dia inteiro, a data final pode ser igual à inicial.'
-          : 'Informe datas válidas. O fim precisa ser depois do início.',
-      )
-      return
+    if (editingEvent.all_day) {
+      const startDateStr = toDateInput(editingEvent.start_date)
+      const endDateStr = toDateInput(editingEvent.end_date)
+
+      if (!startDateStr || !endDateStr || endDateStr < startDateStr) {
+        setFormError('Para evento de dia inteiro, a data de término não pode ser anterior à data de início.')
+        return
+      }
+    } else {
+      if (
+        Number.isNaN(startDate.getTime()) ||
+        Number.isNaN(endDate.getTime()) ||
+        endDate <= startDate
+      ) {
+        setFormError('Informe horários válidos. O término do evento precisa ser posterior ao início.')
+        return
+      }
     }
 
     setFormError(null)
@@ -668,6 +810,17 @@ export default function CalendarView() {
             omitZeroMinute: false,
           }}
           select={handleDateSelect}
+          dateClick={(arg) => {
+            handleDateSelect({
+              start: arg.date,
+              end: arg.date,
+              startStr: arg.dateStr,
+              endStr: arg.dateStr,
+              allDay: arg.allDay,
+              jsEvent: arg.jsEvent,
+              view: arg.view,
+            })
+          }}
           eventClick={handleEventClick}
           eventDidMount={({ event, el }) => {
             const details = [event.extendedProps.description, event.extendedProps.location]
@@ -797,108 +950,157 @@ export default function CalendarView() {
             </div>
 
             <div className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block text-sm font-medium text-slate-700">
-                  Início
-                  <input
-                    className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    type={editingEvent.all_day ? 'date' : 'datetime-local'}
-                    value={editingEvent.all_day ? toDateInput(editingEvent.start_date) : toDateTimeInput(editingEvent.start_date)}
-                    onChange={(changeEvent) =>
-                      setEditingEvent({
-                        ...editingEvent,
-                        start_date: editingEvent.all_day
-                          ? fromDateInput(changeEvent.target.value)
-                          : fromDateTimeInput(changeEvent.target.value),
-                      })
-                    }
-                    required
-                  />
-                </label>
-                <label className="block text-sm font-medium text-slate-700">
-                  Fim
-                  <input
-                    className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    type={editingEvent.all_day ? 'date' : 'datetime-local'}
-                    value={editingEvent.all_day ? toDateInput(editingEvent.end_date) : toDateTimeInput(editingEvent.end_date)}
-                    onChange={(changeEvent) =>
-                      setEditingEvent({
-                        ...editingEvent,
-                        end_date: editingEvent.all_day
-                          ? fromDateInput(changeEvent.target.value)
-                          : fromDateTimeInput(changeEvent.target.value),
-                      })
-                    }
-                    required
-                  />
-                </label>
-              </div>
               <label className="block text-sm font-medium text-slate-700">
                 Título
                 <input
                   className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   value={editingEvent.title}
                   onChange={(changeEvent) => setEditingEvent({ ...editingEvent, title: changeEvent.target.value })}
+                  placeholder="Nome do evento ou compromisso"
                   autoFocus
                   required
                 />
               </label>
+
+              {/* Bloco de Data e Horário */}
+              <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Data e Horário
+                  </span>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700 select-none">
+                    <input
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      type="checkbox"
+                      checked={editingEvent.all_day}
+                      onChange={(changeEvent) => handleAllDayToggle(changeEvent.target.checked)}
+                    />
+                    <span>Dia inteiro</span>
+                  </label>
+                </div>
+
+                {editingEvent.all_day ? (
+                  <div className="space-y-2">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="block text-xs font-semibold text-slate-700">
+                        Data de início
+                        <input
+                          className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          type="date"
+                          value={toDateInput(editingEvent.start_date)}
+                          onChange={(changeEvent) => handleStartDateChange(changeEvent.target.value)}
+                          required
+                        />
+                      </label>
+                      <label className="block text-xs font-semibold text-slate-700">
+                        Data de término
+                        <input
+                          className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          type="date"
+                          value={toDateInput(editingEvent.end_date)}
+                          onChange={(changeEvent) => handleEndDateChange(changeEvent.target.value)}
+                          required
+                        />
+                      </label>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Para evento de apenas um dia, mantenha as datas de início e término iguais.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="block text-xs font-semibold text-slate-700">
+                        Início (data e hora)
+                        <input
+                          className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          type="datetime-local"
+                          value={toDateTimeInput(editingEvent.start_date)}
+                          onChange={(changeEvent) => handleStartDateChange(changeEvent.target.value)}
+                          required
+                        />
+                      </label>
+                      <label className="block text-xs font-semibold text-slate-700">
+                        Término (data e hora)
+                        <input
+                          className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          type="datetime-local"
+                          value={toDateTimeInput(editingEvent.end_date)}
+                          onChange={(changeEvent) => handleEndDateChange(changeEvent.target.value)}
+                          required
+                        />
+                      </label>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Defina o horário em que o compromisso começa e termina.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               <label className="block text-sm font-medium text-slate-700">
                 Descrição
                 <textarea
                   className="mt-1 block min-h-20 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   value={editingEvent.description ?? ''}
+                  placeholder="Detalhes adicionais sobre o evento (opcional)"
                   onChange={(changeEvent) => setEditingEvent({ ...editingEvent, description: changeEvent.target.value })}
                 />
               </label>
+
               <label className="block text-sm font-medium text-slate-700">
                 Local
                 <input
                   className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   value={editingEvent.location ?? ''}
+                  placeholder="Local, link de reunião ou sala (opcional)"
                   onChange={(changeEvent) => setEditingEvent({ ...editingEvent, location: changeEvent.target.value })}
                 />
               </label>
-              <label className="block text-sm font-medium text-slate-700">
-                Lembrete
-                <select
-                  className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  value={editingEvent.reminder_minutes ?? 0}
-                  onChange={(changeEvent) =>
-                    setEditingEvent({
-                      ...editingEvent,
-                      reminder_minutes: Number(changeEvent.target.value),
-                    })
-                  }
-                >
-                  <option value={0}>No momento do evento</option>
-                  <option value={5}>5 minutos antes</option>
-                  <option value={10}>10 minutos antes</option>
-                  <option value={15}>15 minutos antes</option>
-                  <option value={30}>30 minutos antes</option>
-                  <option value={60}>1 hora antes</option>
-                  <option value={1440}>1 dia antes</option>
-                </select>
-              </label>
-              <label className="block text-sm font-medium text-slate-700">
-                Repetir
-                <select
-                  className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  value={editingEvent.recurrence_rule ?? ''}
-                  onChange={(changeEvent) =>
-                    setEditingEvent({
-                      ...editingEvent,
-                      recurrence_rule: changeEvent.target.value,
-                    })
-                  }
-                >
-                  <option value="">Não repetir</option>
-                  <option value="FREQ=DAILY;INTERVAL=1">Diariamente</option>
-                  <option value="FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR">Dias úteis</option>
-                  <option value="FREQ=WEEKLY;INTERVAL=1">Semanalmente</option>
-                  <option value="FREQ=MONTHLY;INTERVAL=1">Mensalmente</option>
-                </select>
-              </label>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block text-sm font-medium text-slate-700">
+                  Lembrete
+                  <select
+                    className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    value={editingEvent.reminder_minutes ?? 0}
+                    onChange={(changeEvent) =>
+                      setEditingEvent({
+                        ...editingEvent,
+                        reminder_minutes: Number(changeEvent.target.value),
+                      })
+                    }
+                  >
+                    <option value={0}>No momento do evento</option>
+                    <option value={5}>5 minutos antes</option>
+                    <option value={10}>10 minutos antes</option>
+                    <option value={15}>15 minutos antes</option>
+                    <option value={30}>30 minutos antes</option>
+                    <option value={60}>1 hora antes</option>
+                    <option value={1440}>1 dia antes</option>
+                  </select>
+                </label>
+                <label className="block text-sm font-medium text-slate-700">
+                  Repetir
+                  <select
+                    className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    value={editingEvent.recurrence_rule ?? ''}
+                    onChange={(changeEvent) =>
+                      setEditingEvent({
+                        ...editingEvent,
+                        recurrence_rule: changeEvent.target.value,
+                      })
+                    }
+                  >
+                    <option value="">Não repetir</option>
+                    <option value="FREQ=DAILY;INTERVAL=1">Diariamente</option>
+                    <option value="FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR">Dias úteis</option>
+                    <option value="FREQ=WEEKLY;INTERVAL=1">Semanalmente</option>
+                    <option value="FREQ=MONTHLY;INTERVAL=1">Mensalmente</option>
+                  </select>
+                </label>
+              </div>
+
               <label className="block text-sm font-medium text-slate-700">
                 Cor
                 <input
@@ -917,18 +1119,7 @@ export default function CalendarView() {
             )}
 
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                  <input
-                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                    type="checkbox"
-                    checked={editingEvent.all_day}
-                    onChange={(changeEvent) =>
-                      setEditingEvent({ ...editingEvent, all_day: changeEvent.target.checked })
-                    }
-                  />
-                  Dia inteiro
-                </label>
+              <div>
                 {editingEvent.id && (
                   <button
                     type="button"

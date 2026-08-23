@@ -10,8 +10,8 @@ export function expandRecurringEvent(event: IEvent): IEvent[] {
   }
 
   try {
-    const rule = rrulestr(event.recurrence_rule, { forceset: false })
     const startDate = new Date(event.start_date)
+    const rule = rrulestr(event.recurrence_rule, { dtstart: startDate, forceset: false })
     const until = new Date(startDate)
     until.setMonth(until.getMonth() + MAX_MONTHS_AHEAD)
 
@@ -21,7 +21,7 @@ export function expandRecurringEvent(event: IEvent): IEvent[] {
       return [event]
     }
 
-    const duration = new Date(event.end_date).getTime() - startDate.getTime()
+    const duration = Math.max(0, new Date(event.end_date).getTime() - startDate.getTime())
 
     return occurrenceDates.map((date, index) => {
       const endDate = new Date(date.getTime() + duration)
