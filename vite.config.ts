@@ -5,8 +5,9 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
-    watch: {
-      ignored: ['**/public/banner*.jpg', '**/public/banner*.jpeg', '**/public/banner*.png'],
-    },
+    middlewareMode: false,
+  },
+  preview: {
+    port: 5173,
   },
 })

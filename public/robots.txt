@@ -1,0 +1,14 @@
+# Robots.txt para WebCal
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /private
+
+# Sitemap location
+Sitemap: https://webcal.app/sitemap.xml
+
+# Crawl-delay
+Crawl-delay: 1
+
+# Request-rate
+Request-rate: 1/1s
