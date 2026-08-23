@@ -6,19 +6,19 @@ interface AffiliateBannerProps {
 
 const AFFILIATE_LINKS: AffiliateBannerProps[] = [
   {
-    href: 'https://affiliate-link.example.com/notion',
-    label: 'Notion',
-    description: 'Organize notas e projetos junto com seu calendário.',
+    href: 'https://apyoth.com/click/5eb462fd2bfa810cbe59323a/142432/249927/',
+    label: 'WebCal Pro',
+    description: 'Recursos exclusivos para turbinar sua organização pessoal.',
   },
   {
-    href: 'https://affiliate-link.example.com/todoist',
-    label: 'Todoist',
-    description: 'Gerencie tarefas diárias de forma simples e rápida.',
+    href: 'https://apyoth.com/click/5eb462fd2bfa810cbe59323a/142432/249927/',
+    label: 'Produtividade',
+    description: 'Ferramentas complementares para planejar melhor seu dia.',
   },
   {
-    href: 'https://affiliate-link.example.com/forest',
-    label: 'Forest',
-    description: 'Mantenha o foco e evite distrações durante seus compromissos.',
+    href: 'https://apyoth.com/click/5eb462fd2bfa810cbe59323a/142432/249927/',
+    label: 'Equipamentos',
+    description: 'Acessórios e gadgets para quem trabalha organizado.',
   },
 ]
 
