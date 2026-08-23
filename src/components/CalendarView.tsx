@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import useSQLite from '../hooks/useSQLite'
 import { createEvent, deleteEvent, getAllEvents, updateEvent } from '../utils/eventService'
 import { expandRecurringEvent } from '../utils/recurrenceService'
+import { parseIcalContent } from '../utils/icalService'
 import type { IEvent } from '../types/event'
 
 const toDateTimeInput = (dateValue: string) => {
@@ -65,6 +66,7 @@ export default function CalendarView() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
+  const [icalImportData, setIcalImportData] = useState<ReturnType<typeof parseIcalContent> | null>(null)
   const [reminderEnabled, setReminderEnabled] = useState(true)
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
@@ -443,6 +445,60 @@ export default function CalendarView() {
     }
   }
 
+  const handleIcalImport = async (changeEvent: React.ChangeEvent<HTMLInputElement>) => {
+    const file = changeEvent.target.files?.[0]
+
+    if (!file) {
+      return
+    }
+
+    try {
+      const text = await file.text()
+      const parsed = parseIcalContent(text)
+
+      setIcalImportData(parsed)
+    } catch (importFailure) {
+      const message = importFailure instanceof Error ? importFailure.message : 'Falha ao importar o arquivo ICS.'
+      setImportError(message)
+    } finally {
+      changeEvent.target.value = ''
+    }
+  }
+
+  const handleConfirmIcalImport = async () => {
+    if (!icalImportData || !db) {
+      return
+    }
+
+    setIsImporting(true)
+    setImportError(null)
+
+    try {
+      for (const event of icalImportData) {
+        await createEvent(executeQuery, {
+          title: event.title,
+          description: event.description,
+          location: event.location,
+          all_day: event.all_day,
+          start_date: event.start_date,
+          end_date: event.end_date,
+          color: event.recurrence_rule ? '#8b5cf6' : '#2563eb',
+          label: 'Importado',
+          reminder_minutes: 10,
+          recurrence_rule: event.recurrence_rule,
+        })
+      }
+
+      setIcalImportData(null)
+      await loadEvents()
+    } catch (importFailure) {
+      const message = importFailure instanceof Error ? importFailure.message : 'Falha ao importar eventos do calendário.'
+      setImportError(message)
+    } finally {
+      setIsImporting(false)
+    }
+  }
+
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center text-slate-700">Carregando banco local...</div>
   }
@@ -466,6 +522,16 @@ export default function CalendarView() {
               type="file"
               accept=".sqlite,.db,application/vnd.sqlite3"
               onChange={(changeEvent) => void handleImportDatabase(changeEvent)}
+              disabled={isImporting || !db}
+            />
+          </label>
+          <label className="w-full cursor-pointer rounded-md border border-slate-300 bg-white px-2 py-2 text-center text-[11px] font-semibold leading-tight text-slate-700 shadow-sm transition hover:bg-slate-50 sm:w-auto sm:px-4 sm:text-sm">
+            <span>Importar ICS</span>
+            <input
+              className="sr-only"
+              type="file"
+              accept=".ics,.ical,text/calendar"
+              onChange={(changeEvent) => void handleIcalImport(changeEvent)}
               disabled={isImporting || !db}
             />
           </label>
@@ -628,6 +694,71 @@ export default function CalendarView() {
           }}
         />
       </div>
+
+      {icalImportData && (
+        <div
+          className="fixed inset-0 z-10 flex items-center justify-center bg-slate-950/40 p-4"
+          role="presentation"
+          onMouseDown={(mouseEvent) => {
+            if (mouseEvent.target === mouseEvent.currentTarget && !isSaving) {
+              setIcalImportData(null)
+            }
+          }}
+        >
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-4 shadow-xl sm:p-6">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-purple-600">Importar calendário</p>
+                <h2 className="mt-1 text-xl font-bold text-slate-900">
+                  {icalImportData.length} evento{icalImportData.length !== 1 ? 's' : ''} encontrado{icalImportData.length !== 1 ? 's' : ''}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="text-sm font-medium text-slate-500 hover:text-slate-900"
+                onClick={() => setIcalImportData(null)}
+              >
+                Cancelar
+              </button>
+            </div>
+            <div className="max-h-60 space-y-2 overflow-y-auto">
+              {icalImportData.slice(0, 50).map((event, index) => (
+                <div key={index} className="rounded-md border border-slate-100 bg-slate-50 px-3 py-2 text-sm">
+                  <span className="font-medium text-slate-900">{event.title}</span>
+                  <span className="ml-2 text-xs text-slate-400">
+                    {new Date(event.start_date).toLocaleDateString('pt-BR')}
+                  </span>
+                  {event.recurrence_rule && (
+                    <span className="ml-2 text-xs text-purple-500">Recorrente</span>
+                  )}
+                </div>
+              ))}
+              {icalImportData.length > 50 && (
+                <p className="text-center text-xs text-slate-400">
+                  ...e mais {icalImportData.length - 50} evento{icalImportData.length - 50 !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                onClick={() => setIcalImportData(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="rounded-md bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => void handleConfirmIcalImport()}
+                disabled={isImporting}
+              >
+                {isImporting ? 'Importando...' : `Importar ${icalImportData.length} evento${icalImportData.length !== 1 ? 's' : ''}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {editingEvent && (
         <div
