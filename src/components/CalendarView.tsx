@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 
 import useSQLite from '../hooks/useSQLite'
 import { createEvent, deleteEvent, getAllEvents, updateEvent } from '../utils/eventService'
+import { expandRecurringEvent } from '../utils/recurrenceService'
 import type { IEvent } from '../types/event'
 
 const toDateTimeInput = (dateValue: string) => {
@@ -67,7 +68,33 @@ export default function CalendarView() {
   const [reminderEnabled, setReminderEnabled] = useState(true)
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterLabel, setFilterLabel] = useState<string | null>(null)
   const firedRemindersRef = useRef<Set<string>>(getRemindersCache())
+
+  const allLabels = [...new Set(eventRecords.map((e) => e.label ?? 'Agenda').filter(Boolean))]
+
+  const expandedEventRecords = eventRecords.flatMap(expandRecurringEvent)
+
+  const filteredEventRecords = expandedEventRecords.filter((event) => {
+    if (filterLabel && (event.label ?? 'Agenda') !== filterLabel) {
+      return false
+    }
+
+    if (!searchQuery.trim()) {
+      return true
+    }
+
+    const query = searchQuery.toLowerCase()
+
+    return (
+      event.title.toLowerCase().includes(query) ||
+      (event.description ?? '').toLowerCase().includes(query) ||
+      (event.location ?? '').toLowerCase().includes(query)
+    )
+  })
+
+  const filteredEvents = events.filter((event) => filteredEventRecords.some((er) => er.id === event.id))
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 767px)')
@@ -106,7 +133,7 @@ export default function CalendarView() {
 
       setEventRecords(loadedEvents)
       setEvents(
-        loadedEvents.map((event) => ({
+        loadedEvents.flatMap(expandRecurringEvent).map((event) => ({
           id: event.id,
           title: event.title,
           start: event.start_date,
@@ -273,7 +300,10 @@ export default function CalendarView() {
   }, [eventRecords, reminderEnabled, showReminderNotification])
 
   const handleEventClick = (clickInfo: EventClickArg) => {
-    const selectedEvent = eventRecords.find((event) => event.id === clickInfo.event.id)
+    const eventId = clickInfo.event.id
+    const selectedEvent = eventRecords.find(
+      (event) => event.id === eventId || event.id === clickInfo.event.extendedProps.original_event_id,
+    )
 
     if (selectedEvent) {
       setFormError(null)
@@ -504,6 +534,57 @@ export default function CalendarView() {
         </p>
       )}
 
+      {/* Busca e filtros */}
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <div className="relative flex-1">
+          <input
+            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            type="search"
+            placeholder="Buscar eventos por título, descrição ou local..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <svg
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+        </div>
+        <select
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 sm:w-auto"
+          value={filterLabel ?? ''}
+          onChange={(e) => setFilterLabel(e.target.value || null)}
+        >
+          <option value="">Todas as categorias</option>
+          {allLabels.map((label) => (
+            <option key={label} value={label}>
+              {label}
+            </option>
+          ))}
+        </select>
+        {(searchQuery || filterLabel) && (
+          <button
+            type="button"
+            className="whitespace-nowrap text-sm font-medium text-slate-500 hover:text-slate-800"
+            onClick={() => {
+              setSearchQuery('')
+              setFilterLabel(null)
+            }}
+          >
+            Limpar filtros
+          </button>
+        )}
+      </div>
+
       <div className="calendar-shell overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:rounded-2xl">
         <FullCalendar
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -512,7 +593,7 @@ export default function CalendarView() {
           selectable
           editable
           selectMirror
-          events={events}
+          events={filteredEvents}
           select={handleDateSelect}
           eventClick={handleEventClick}
           eventDidMount={({ event, el }) => {
@@ -657,6 +738,25 @@ export default function CalendarView() {
                   <option value={30}>30 minutos antes</option>
                   <option value={60}>1 hora antes</option>
                   <option value={1440}>1 dia antes</option>
+                </select>
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                Repetir
+                <select
+                  className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  value={editingEvent.recurrence_rule ?? ''}
+                  onChange={(changeEvent) =>
+                    setEditingEvent({
+                      ...editingEvent,
+                      recurrence_rule: changeEvent.target.value,
+                    })
+                  }
+                >
+                  <option value="">Não repetir</option>
+                  <option value="FREQ=DAILY;INTERVAL=1">Diariamente</option>
+                  <option value="FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR">Dias úteis</option>
+                  <option value="FREQ=WEEKLY;INTERVAL=1">Semanalmente</option>
+                  <option value="FREQ=MONTHLY;INTERVAL=1">Mensalmente</option>
                 </select>
               </label>
               <label className="block text-sm font-medium text-slate-700">
