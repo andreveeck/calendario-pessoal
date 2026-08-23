@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import CalendarView from './components/CalendarView'
+import { DeveloperContact } from './components/AffiliateBanner'
 
 const chips = ['Offline', 'Privado', 'Rápido', 'Local'] as const
 
@@ -64,6 +65,10 @@ function App() {
             <p className="mt-2 text-sm leading-relaxed text-slate-500">{benefit.description}</p>
           </div>
         ))}
+      </div>
+
+      <div className="mt-12 w-full max-w-2xl">
+        <DeveloperContact />
       </div>
     </div>
   )
