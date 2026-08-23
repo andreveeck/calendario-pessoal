@@ -36,7 +36,7 @@ type SeoConfig = {
 
 export const SEO_CONFIG: SeoConfig = {
   siteName: 'WebCal',
-  baseURL: 'https://webcal.app',
+  baseURL: 'https://calendario-pessoal-ruby.vercel.app',
   locale: 'pt_BR',
 
   homepage: {
@@ -57,14 +57,14 @@ export const SEO_CONFIG: SeoConfig = {
       'calendário 2027',
       'planejador semanal',
     ],
-    canonical: 'https://webcal.app',
+    canonical: 'https://calendario-pessoal-ruby.vercel.app',
   },
 
   calendar: {
     title: 'Calendário WebCal',
     description: 'Gerencie eventos, compromissos e lembretes com o calendário privado e offline do WebCal.',
     keywords: ['calendário', 'eventos', 'compromissos', 'agenda', 'lembretes'],
-    canonical: 'https://webcal.app/calendario',
+    canonical: 'https://calendario-pessoal-ruby.vercel.app',
   },
 
   // Dados estruturados (Schema.org)
@@ -73,7 +73,7 @@ export const SEO_CONFIG: SeoConfig = {
     '@type': 'WebApplication',
     name: 'WebCal',
     description: 'Calendário e agenda com sincronização local. Privado e sem depender da nuvem.',
-    url: 'https://webcal.app',
+    url: 'https://calendario-pessoal-ruby.vercel.app',
     applicationCategory: 'Productivity',
     operatingSystem: 'All',
     inLanguage: 'pt-BR',
