@@ -4,7 +4,7 @@ import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import timeGridPlugin from '@fullcalendar/timegrid'
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 
 import useSQLite from '../hooks/useSQLite'
 import { createEvent, deleteEvent, getAllEvents, updateEvent } from '../utils/eventService'
@@ -25,6 +25,34 @@ const toDateTimeInput = (dateValue: string) => {
 const fromDateTimeInput = (dateValue: string) => (dateValue ? new Date(dateValue).toISOString() : '')
 const toDateInput = (dateValue: string) => toDateTimeInput(dateValue).slice(0, 10)
 const fromDateInput = (dateValue: string) => (dateValue ? new Date(`${dateValue}T00:00:00`).toISOString() : '')
+const NOTIFICATION_CACHE_KEY = 'webcal-fired-reminders'
+
+const getRemindersCache = (): Set<string> => {
+  if (typeof window === 'undefined') {
+    return new Set()
+  }
+
+  try {
+    const stored = window.localStorage.getItem(NOTIFICATION_CACHE_KEY)
+    const parsed = stored ? (JSON.parse(stored) as string[]) : []
+
+    return new Set(parsed)
+  } catch {
+    return new Set()
+  }
+}
+
+const saveRemindersCache = (reminders: Set<string>) => {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(NOTIFICATION_CACHE_KEY, JSON.stringify([...reminders]))
+  } catch {
+    // Ignore storage quota issues while the app is still usable.
+  }
+}
 
 export default function CalendarView() {
   const { loading, error, db, executeQuery, exportDatabase, importDatabase } = useSQLite()
@@ -36,7 +64,10 @@ export default function CalendarView() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
+  const [reminderEnabled, setReminderEnabled] = useState(true)
+  const [notificationMessage, setNotificationMessage] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
+  const firedRemindersRef = useRef<Set<string>>(getRemindersCache())
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 767px)')
@@ -120,6 +151,127 @@ export default function CalendarView() {
     })
   }
 
+  const playAlertSound = () => {
+    if (typeof window === 'undefined' || typeof Audio === 'undefined') {
+      return
+    }
+
+    const audioContext = new AudioContext()
+    const oscillator = audioContext.createOscillator()
+    const gainNode = audioContext.createGain()
+
+    oscillator.type = 'sine'
+    oscillator.frequency.setValueAtTime(880, audioContext.currentTime)
+    oscillator.frequency.exponentialRampToValueAtTime(440, audioContext.currentTime + 0.3)
+    gainNode.gain.setValueAtTime(0.08, audioContext.currentTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3)
+
+    oscillator.connect(gainNode)
+    gainNode.connect(audioContext.destination)
+
+    oscillator.start()
+    oscillator.stop(audioContext.currentTime + 0.3)
+  }
+
+  const triggerHapticFeedback = () => {
+    if (typeof navigator === 'undefined' || !('vibrate' in navigator)) {
+      return
+    }
+
+    try {
+      navigator.vibrate([200, 100, 200])
+    } catch {
+      // Vibration may be blocked by the browser or absent.
+    }
+  }
+
+  const showReminderNotification = useCallback((event: IEvent) => {
+    const reminderMinutes = event.reminder_minutes ?? 0
+    const reminderText = reminderMinutes > 0 ? `Lembrete ${reminderMinutes} min antes` : 'Lembrete do evento'
+    const scheduledAt = new Date(event.start_date)
+    const timeLabel = scheduledAt.toLocaleString('pt-BR', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    })
+
+    playAlertSound()
+    triggerHapticFeedback()
+    setNotificationMessage(`Lembrete: ${event.title} — ${timeLabel} (${reminderText})`)
+  }, [])
+
+  const triggerTestNotification = useCallback(() => {
+    const testEvent: IEvent = {
+      id: 'demo-reminder',
+      title: 'Teste de lembrete',
+      description: 'Aviso interno do app',
+      location: '',
+      all_day: false,
+      start_date: new Date(Date.now() + 60_000).toISOString(),
+      end_date: new Date(Date.now() + 120_000).toISOString(),
+      color: '#2563eb',
+      reminder_minutes: 1,
+    }
+
+    showReminderNotification(testEvent)
+    setNotificationMessage('Teste de lembrete interno enviado. O banner do app apareceu para simular o aviso.')
+  }, [showReminderNotification])
+
+  useEffect(() => {
+    const syncCache = () => saveRemindersCache(firedRemindersRef.current)
+
+    window.addEventListener('beforeunload', syncCache)
+
+    return () => {
+      window.removeEventListener('beforeunload', syncCache)
+      syncCache()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!reminderEnabled || !eventRecords.length) {
+      return
+    }
+
+    // Grace window covers reminders due while the tab was closed, reloaded or backgrounded.
+    const GRACE_WINDOW_MS = 5 * 60 * 1000
+
+    const checkReminders = () => {
+      const now = Date.now()
+      const nextReminders = new Set(firedRemindersRef.current)
+      let hasNewReminder = false
+
+      eventRecords.forEach((event) => {
+        const reminderMinutes = event.reminder_minutes ?? 0
+        const reminderAt = new Date(event.start_date).getTime() - reminderMinutes * 60 * 1000
+        const reminderKey = `${event.id}-${reminderMinutes}-${event.start_date}`
+
+        if (!Number.isFinite(reminderAt) || nextReminders.has(reminderKey)) {
+          return
+        }
+
+        if (now >= reminderAt && now <= reminderAt + GRACE_WINDOW_MS) {
+          nextReminders.add(reminderKey)
+          hasNewReminder = true
+          showReminderNotification(event)
+        }
+      })
+
+      if (hasNewReminder) {
+        firedRemindersRef.current = nextReminders
+        saveRemindersCache(nextReminders)
+      }
+    }
+
+    checkReminders()
+    const intervalId = window.setInterval(checkReminders, 10_000)
+    document.addEventListener('visibilitychange', checkReminders)
+
+    return () => {
+      window.clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', checkReminders)
+    }
+  }, [eventRecords, reminderEnabled, showReminderNotification])
+
   const handleEventClick = (clickInfo: EventClickArg) => {
     const selectedEvent = eventRecords.find((event) => event.id === clickInfo.event.id)
 
@@ -154,11 +306,22 @@ export default function CalendarView() {
       return
     }
 
+    const reminderMinutes = Number(editingEvent.reminder_minutes ?? 0)
     const startDate = new Date(editingEvent.start_date)
     const endDate = new Date(editingEvent.end_date)
+    const isSameDayAllDayEvent = editingEvent.all_day && endDate.getTime() >= startDate.getTime()
 
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate <= startDate) {
-      setFormError('Informe datas válidas. O fim precisa ser depois do início.')
+    if (
+      Number.isNaN(startDate.getTime()) ||
+      Number.isNaN(endDate.getTime()) ||
+      (!editingEvent.all_day && endDate <= startDate) ||
+      (editingEvent.all_day && !isSameDayAllDayEvent && endDate < startDate)
+    ) {
+      setFormError(
+        editingEvent.all_day
+          ? 'Informe datas válidas. Para evento do dia inteiro, a data final pode ser igual à inicial.'
+          : 'Informe datas válidas. O fim precisa ser depois do início.',
+      )
       return
     }
 
@@ -175,7 +338,7 @@ export default function CalendarView() {
         end_date: editingEvent.end_date,
         color: editingEvent.color ?? '#2563eb',
         label: editingEvent.label ?? 'Agenda',
-        reminder_minutes: editingEvent.reminder_minutes ?? 10,
+        reminder_minutes: reminderMinutes,
         recurrence_rule: editingEvent.recurrence_rule ?? '',
       }
 
@@ -265,7 +428,7 @@ export default function CalendarView() {
           <p className="text-sm font-medium uppercase tracking-[0.2em] text-blue-600">WebCal</p>
           <h1 className="mt-1 text-2xl font-bold text-slate-900 sm:mt-2 sm:text-3xl">Calendário Offline</h1>
         </div>
-        <div className="mobile-actions grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto">
+        <div className="mobile-actions grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
           <label className="w-full cursor-pointer rounded-md border border-slate-300 bg-white px-2 py-2 text-center text-[11px] font-semibold leading-tight text-slate-700 shadow-sm transition hover:bg-slate-50 sm:w-auto sm:px-4 sm:text-sm">
             <span>{isImporting ? 'Importando...' : 'Importar backup'}</span>
             <input
@@ -293,8 +456,47 @@ export default function CalendarView() {
           >
             {isRefreshing ? 'Atualizando...' : 'Atualizar'}
           </button>
+          <button
+            type="button"
+            className="w-full rounded-md border border-slate-300 bg-white px-2 py-2 text-[11px] font-semibold leading-tight text-slate-700 shadow-sm transition hover:bg-slate-50 sm:w-auto sm:px-4 sm:text-sm"
+            onClick={() => {
+              setReminderEnabled((previous) => !previous)
+              setNotificationMessage(
+                reminderEnabled
+                  ? 'Lembretes internos desativados.'
+                  : 'Lembretes internos ativados. O app vai avisar quando o compromisso estiver próximo.',
+              )
+            }}
+          >
+            {reminderEnabled ? 'Lembretes ativos' : 'Ativar lembretes'}
+          </button>
+          <button
+            type="button"
+            className="w-full rounded-md border border-blue-200 bg-blue-50 px-2 py-2 text-[11px] font-semibold leading-tight text-blue-700 shadow-sm transition hover:bg-blue-100 sm:w-auto sm:px-4 sm:text-sm"
+            onClick={() => void triggerTestNotification()}
+          >
+            Testar aviso
+          </button>
         </div>
       </div>
+
+      {notificationMessage && (
+        <div className="fixed left-4 right-4 top-4 z-50 mx-auto flex max-w-2xl animate-reminder-pulse items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 shadow-lg">
+          <span aria-hidden="true" className="mt-0.5 text-lg">
+            🔔
+          </span>
+          <p className="flex-1" role="status">
+            {notificationMessage}
+          </p>
+          <button
+            type="button"
+            className="rounded-md px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+            onClick={() => setNotificationMessage(null)}
+          >
+            Fechar
+          </button>
+        </div>
+      )}
 
       {importError && (
         <p className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
@@ -437,6 +639,27 @@ export default function CalendarView() {
                 />
               </label>
               <label className="block text-sm font-medium text-slate-700">
+                Lembrete
+                <select
+                  className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  value={editingEvent.reminder_minutes ?? 0}
+                  onChange={(changeEvent) =>
+                    setEditingEvent({
+                      ...editingEvent,
+                      reminder_minutes: Number(changeEvent.target.value),
+                    })
+                  }
+                >
+                  <option value={0}>No momento do evento</option>
+                  <option value={5}>5 minutos antes</option>
+                  <option value={10}>10 minutos antes</option>
+                  <option value={15}>15 minutos antes</option>
+                  <option value={30}>30 minutos antes</option>
+                  <option value={60}>1 hora antes</option>
+                  <option value={1440}>1 dia antes</option>
+                </select>
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
                 Cor
                 <input
                   className="mt-1 block h-10 w-full rounded-md border border-slate-300 bg-white px-1 py-1"
@@ -454,27 +677,29 @@ export default function CalendarView() {
             )}
 
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-              {editingEvent.id && (
-                <button
-                  type="button"
-                  className="text-sm font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
-                  onClick={() => void handleEventDelete()}
-                  disabled={isSaving}
-                >
-                  Excluir evento
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                <input
-                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  type="checkbox"
-                  checked={editingEvent.all_day}
-                  onChange={(changeEvent) =>
-                    setEditingEvent({ ...editingEvent, all_day: changeEvent.target.checked })
-                  }
-                />
-                Dia inteiro
-              </label>
-                </button>
-              )}
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <input
+                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    type="checkbox"
+                    checked={editingEvent.all_day}
+                    onChange={(changeEvent) =>
+                      setEditingEvent({ ...editingEvent, all_day: changeEvent.target.checked })
+                    }
+                  />
+                  Dia inteiro
+                </label>
+                {editingEvent.id && (
+                  <button
+                    type="button"
+                    className="text-sm font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
+                    onClick={() => void handleEventDelete()}
+                    disabled={isSaving}
+                  >
+                    Excluir evento
+                  </button>
+                )}
+              </div>
               <div className="flex flex-wrap justify-end gap-3">
                 <button
                   type="button"
