@@ -594,6 +594,12 @@ export default function CalendarView() {
           editable
           selectMirror
           events={filteredEvents}
+          eventTimeFormat={{
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+            omitZeroMinute: false,
+          }}
           select={handleDateSelect}
           eventClick={handleEventClick}
           eventDidMount={({ event, el }) => {

@@ -40,6 +40,21 @@ body {
   animation: reminder-pulse 1.5s ease-in-out 3;
 }
 
+.calendar-shell .fc-event {
+  border-radius: 4px;
+  padding: 1px 3px;
+  font-size: 0.8125rem;
+}
+
+.calendar-shell .fc-event-time {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.calendar-shell .fc-event-title {
+  font-weight: 500;
+}
+
 @media (max-width: 767px) {
   .calendar-shell {
     border-radius: 0.75rem;
