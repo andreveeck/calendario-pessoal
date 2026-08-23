@@ -10,6 +10,7 @@ import useSQLite from '../hooks/useSQLite'
 import { createEvent, deleteEvent, getAllEvents, updateEvent } from '../utils/eventService'
 import { expandRecurringEvent } from '../utils/recurrenceService'
 import { parseIcalContent } from '../utils/icalService'
+import { AffiliateFooter } from './AffiliateBanner'
 import type { IEvent } from '../types/event'
 
 const toDateTimeInput = (dateValue: string) => {
@@ -694,6 +695,8 @@ export default function CalendarView() {
           }}
         />
       </div>
+
+      <AffiliateFooter />
 
       {icalImportData && (
         <div
