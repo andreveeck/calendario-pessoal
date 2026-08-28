@@ -1,4 +1,4 @@
-import { RRule, rrulestr, type Weekday } from 'rrule'
+import { rrulestr } from 'rrule'
 import type { IEvent } from '../types/event'
 
 const MAX_INSTANCES = 400
@@ -39,32 +39,4 @@ export function expandRecurringEvent(event: IEvent): IEvent[] {
   }
 }
 
-const DAY_MAP: Record<string, Weekday> = {
-  MO: RRule.MO,
-  TU: RRule.TU,
-  WE: RRule.WE,
-  TH: RRule.TH,
-  FR: RRule.FR,
-  SA: RRule.SA,
-  SU: RRule.SU,
-}
 
-export function buildRecurrenceRule(
-  freq: 'daily' | 'weekly' | 'monthly',
-  interval: number,
-  byDay?: string[],
-  until?: string,
-): string {
-  const freqMap = { daily: RRule.DAILY, weekly: RRule.WEEKLY, monthly: RRule.MONTHLY } as const
-  const options: Record<string, unknown> = { freq: freqMap[freq], interval }
-
-  if (byDay?.length) {
-    options.byweekday = byDay.map((day) => DAY_MAP[day.toUpperCase()] ?? RRule.MO).filter(Boolean)
-  }
-
-  if (until) {
-    options.until = new Date(until)
-  }
-
-  return new RRule(options).toString()
-}

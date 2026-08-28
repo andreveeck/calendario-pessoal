@@ -42,16 +42,6 @@ export async function getAllEvents(
   return resultToRows(rows[0]).map((row) => normalizeEvent(row))
 }
 
-export async function getEventById(
-  executeQuery: ExecuteQuery,
-  id: string,
-): Promise<IEvent | null> {
-  const rows = await executeQuery('SELECT * FROM events WHERE id = ?', [id])
-  const event = resultToRows(rows[0])[0]
-
-  return event ? normalizeEvent(event) : null
-}
-
 export async function createEvent(
   executeQuery: ExecuteQuery,
   eventData: Omit<IEvent, 'id' | 'created_at' | 'updated_at'>,
@@ -92,13 +82,26 @@ export async function createEvent(
   return id
 }
 
+const UPDATABLE_COLUMNS = new Set([
+  'title',
+  'description',
+  'location',
+  'all_day',
+  'start_date',
+  'end_date',
+  'color',
+  'label',
+  'reminder_minutes',
+  'recurrence_rule',
+])
+
 export async function updateEvent(
   executeQuery: ExecuteQuery,
   id: string,
   eventData: Partial<IEvent>,
 ): Promise<void> {
   const fieldsToUpdate = Object.entries(eventData).filter(
-    ([key]) => key !== 'id' && key !== 'created_at' && key !== 'updated_at',
+    ([key]) => UPDATABLE_COLUMNS.has(key),
   )
 
   if (!fieldsToUpdate.length) {

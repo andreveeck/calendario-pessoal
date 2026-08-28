@@ -1,0 +1,20 @@
+{
+  "name": "WebCal — Calendário Offline",
+  "short_name": "WebCal",
+  "description": "Calendário e agenda privada 100% offline. Organize eventos sem internet, com total privacidade.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "orientation": "any",
+  "lang": "pt-BR",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
