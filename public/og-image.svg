@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2563eb;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  
+  <!-- Grid pattern -->
+  <g opacity="0.08">
+    <line x1="0" y1="0" x2="1200" y2="630" stroke="white" stroke-width="1"/>
+    <line x1="200" y1="0" x2="1200" y2="500" stroke="white" stroke-width="1"/>
+    <line x1="400" y1="0" x2="1200" y2="370" stroke="white" stroke-width="1"/>
+    <line x1="600" y1="0" x2="1200" y2="240" stroke="white" stroke-width="1"/>
+    <line x1="800" y1="0" x2="1200" y2="110" stroke="white" stroke-width="1"/>
+    <line x1="0" y1="200" x2="1000" y2="630" stroke="white" stroke-width="1"/>
+    <line x1="0" y1="400" x2="800" y2="630" stroke="white" stroke-width="1"/>
+  </g>
+  
+  <!-- Calendar icon -->
+  <g transform="translate(520, 80)">
+    <rect x="0" y="40" width="160" height="140" rx="16" fill="white" opacity="0.95"/>
+    <rect x="0" y="40" width="160" height="50" rx="16" fill="#1e40af"/>
+    <rect x="0" y="70" width="160" height="20" fill="#1e40af"/>
+    <circle cx="40" cy="65" r="6" fill="white"/>
+    <circle cx="120" cy="65" r="6" fill="white"/>
+    <text x="80" y="120" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="48" font-weight="bold" fill="#1e40af">27</text>
+    <text x="80" y="155" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#64748b">AGOSTO</text>
+  </g>
+  
+  <!-- Title -->
+  <text x="600" y="320" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="64" font-weight="bold" fill="white">
+    WebCal
+  </text>
+  
+  <!-- Subtitle -->
+  <text x="600" y="380" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="28" fill="white" opacity="0.9">
+    Calendário e Agenda Online 100% Offline
+  </text>
+  
+  <!-- Tags -->
+  <g transform="translate(600, 420)" text-anchor="middle">
+    <rect x="-200" y="0" width="120" height="36" rx="18" fill="white" opacity="0.2"/>
+    <text x="-140" y="24" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="white">🔒 Privado</text>
+    
+    <rect x="-50" y="0" width="120" height="36" rx="18" fill="white" opacity="0.2"/>
+    <text x="10" y="24" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="white">📶 Offline</text>
+    
+    <rect x="100" y="0" width="120" height="36" rx="18" fill="white" opacity="0.2"/>
+    <text x="160" y="24" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="white">⚡ Rápido</text>
+  </g>
+  
+  <!-- URL -->
+  <text x="600" y="590" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="white" opacity="0.6">
+    calendario-pessoal-ruby.vercel.app
+  </text>
+</svg>
