@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { IEvent } from '../types/event'
 
 const NOTIFICATION_CACHE_KEY = 'webcal-fired-reminders'
-const GRACE_WINDOW_MS = 5 * 60 * 1000
 
 const getRemindersCache = (): Set<string> => {
   if (typeof window === 'undefined') return new Set()
@@ -161,7 +160,8 @@ export function useReminders(eventRecords: IEvent[]) {
 
         if (!Number.isFinite(reminderAt) || nextReminders.has(reminderKey)) return
 
-        if (now >= reminderAt && now <= reminderAt + GRACE_WINDOW_MS) {
+        // Dispara o lembrete se o horário já passou (inclusive quando o usuário volta da aba)
+        if (now >= reminderAt) {
           nextReminders.add(reminderKey)
           hasNewReminder = true
           showReminderNotification(event)
