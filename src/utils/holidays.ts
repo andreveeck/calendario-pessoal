@@ -95,9 +95,9 @@ export function holidaysToEventInputs(holidays: Holiday[]) {
     start: holiday.date,
     allDay: true,
     display: 'background' as const,
-    backgroundColor: holiday.color + '33', // 20% opacity
+    backgroundColor: holiday.color + '20', // 12% opacity
     borderColor: holiday.color,
-    textColor: holiday.color,
+    classNames: ['holiday-event'],
     extendedProps: {
       isHoliday: true,
     },

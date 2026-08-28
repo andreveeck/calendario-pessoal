@@ -51,6 +51,11 @@ body {
   margin-right: 4px;
 }
 
+/* Feriados: esconder horário e manter só o nome */
+.holiday-event .fc-event-time {
+  display: none;
+}
+
 .calendar-shell .fc-event-title {
   font-weight: 500;
 }
