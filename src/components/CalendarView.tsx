@@ -10,6 +10,7 @@ import useSQLite from '../hooks/useSQLite'
 import { useEventsManager } from '../hooks/useEventsManager'
 import { useReminders } from '../hooks/useReminders'
 import { parseIcalContent } from '../utils/icalService'
+import { getCurrentAndNextYearHolidays, holidaysToEventInputs } from '../utils/holidays'
 import { toDateInput } from '../utils/dateUtils'
 import { AffiliateFooter } from './AffiliateBanner'
 import { CalendarToolbar } from './CalendarToolbar'
@@ -50,6 +51,12 @@ export default function CalendarView() {
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterLabel, setFilterLabel] = useState<string | null>(null)
+  const [showHolidays, setShowHolidays] = useState(true)
+
+  const holidayEvents = useMemo(() => {
+    if (!showHolidays) return []
+    return holidaysToEventInputs(getCurrentAndNextYearHolidays())
+  }, [showHolidays])
 
   const allLabels = useMemo(
     () => [...new Set(eventRecords.map((e) => e.label ?? 'Agenda').filter(Boolean))],
@@ -363,6 +370,7 @@ export default function CalendarView() {
           isImporting={isImporting}
           isRefreshing={isRefreshing}
           reminderEnabled={reminderEnabled}
+          showHolidays={showHolidays}
           onImportBackup={handleImportDatabase}
           onImportIcal={handleIcalImport}
           onExportBackup={handleExportDatabase}
@@ -376,6 +384,7 @@ export default function CalendarView() {
                 : 'Lembretes internos ativados. O app vai avisar quando o compromisso estiver próximo.',
             )
           }}
+          onToggleHolidays={() => setShowHolidays((p) => !p)}
           onTestNotification={() => void triggerTestNotification()}
         />
       </div>
@@ -417,7 +426,7 @@ export default function CalendarView() {
           selectable
           editable
           selectMirror
-          events={filteredEvents}
+          events={[...filteredEvents, ...holidayEvents]}
           eventTimeFormat={{
             hour: '2-digit',
             minute: '2-digit',

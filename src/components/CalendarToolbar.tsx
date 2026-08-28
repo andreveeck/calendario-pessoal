@@ -5,11 +5,13 @@ interface CalendarToolbarProps {
   isImporting: boolean
   isRefreshing: boolean
   reminderEnabled: boolean
+  showHolidays: boolean
   onImportBackup: (e: React.ChangeEvent<HTMLInputElement>) => void
   onImportIcal: (e: React.ChangeEvent<HTMLInputElement>) => void
   onExportBackup: () => void
   onRefresh: () => void
   onToggleReminder: () => void
+  onToggleHolidays: () => void
   onTestNotification: () => void
 }
 
@@ -18,11 +20,13 @@ export function CalendarToolbar({
   isImporting,
   isRefreshing,
   reminderEnabled,
+  showHolidays,
   onImportBackup,
   onImportIcal,
   onExportBackup,
   onRefresh,
   onToggleReminder,
+  onToggleHolidays,
   onTestNotification,
 }: CalendarToolbarProps) {
   return (
@@ -70,6 +74,17 @@ export function CalendarToolbar({
         onClick={onToggleReminder}
       >
         {reminderEnabled ? 'Lembretes ativos' : 'Ativar lembretes'}
+      </button>
+      <button
+        type="button"
+        className={`w-full rounded-md px-2 py-2 text-[11px] font-semibold leading-tight shadow-sm transition sm:w-auto sm:px-4 sm:text-sm ${
+          showHolidays
+            ? 'border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+            : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+        }`}
+        onClick={onToggleHolidays}
+      >
+        {showHolidays ? '🇧🇷 Feriados' : 'Mostrar feriados'}
       </button>
       <button
         type="button"
