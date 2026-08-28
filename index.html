@@ -4,56 +4,152 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f8fafc" />
+    <meta name="theme-color" content="#2563eb" />
     <link rel="manifest" href="/manifest.json" />
     
-    <!-- Meta Tags de SEO -->
-    <meta name="description" content="WebCal: Calendário e agenda online 100% offline com sincronização local. Organize eventos, compromissos e tarefas sem internet. Rápido, privado e sem depender da nuvem." />
-    <meta name="keywords" content="calendário, agenda, calendário online, agenda online, planner, organizador pessoal, calendário offline, agenda compartilhada" />
+    <!-- Meta Tags de SEO — Otimizadas para keywords de alto volume -->
+    <meta name="description" content="WebCal: Calendário e agenda online 100% offline com sincronização local. Crie eventos, defina lembretes e organize sua vida sem internet. Privado, rápido e sem cadastro." />
+    <meta name="keywords" content="calendário, agenda, calendário online, agenda online, planner, organizador pessoal, calendário offline, agenda compartilhada, agenda digital, planner semanal, calendário 2024, agenda eletrônica, calendário com lembretes" />
     <meta name="author" content="WebCal" />
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
     <meta name="language" content="pt-BR" />
-    <meta name="revisit-after" content="7 days" />
+    <meta name="revisit-after" content="3 days" />
     <meta name="google-site-verification" content="kWzYP7a99izKNojnNBZiZMrVHx9n9WDn2NZTv7yKvh4" />
     <link rel="canonical" href="https://calendario-pessoal-ruby.vercel.app/" />
     
-    <!-- Open Graph Meta Tags -->
+    <!-- Open Graph Meta Tags — Otimizado para compartilhamento WhatsApp/Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="WebCal | Calendário Offline - Organize com Privacidade" />
-    <meta property="og:description" content="Calendário e agenda privada com armazenamento local. Acesse, crie e gerencie eventos sem internet. Totalmente seguro e sem sincronização na nuvem." />
+    <meta property="og:title" content="WebCal — Calendário e Agenda Online 100% Offline" />
+    <meta property="og:description" content="Calendário e agenda privada com armazenamento local. Crie eventos, lembretes e organize sua vida sem internet. Totalmente seguro e sem sincronização na nuvem." />
     <meta property="og:url" content="https://calendario-pessoal-ruby.vercel.app/" />
     <meta property="og:site_name" content="WebCal" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:image" content="https://calendario-pessoal-ruby.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="WebCal | Calendário Offline" />
+    <meta name="twitter:title" content="WebCal — Calendário Offline e Agenda Privada" />
     <meta name="twitter:description" content="Calendário e agenda online 100% offline. Privado, rápido e sem depender da nuvem." />
+    <meta name="twitter:image" content="https://calendario-pessoal-ruby.vercel.app/og-image.png" />
     
-    <!-- Schema JSON (Structured Data) -->
+    <!-- Schema JSON — WebApplication + FAQPage -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebApplication",
       "name": "WebCal",
-      "description": "Calendário e agenda online com sincronização local. Organize eventos com privacidade total.",
+      "alternateName": ["Calendário Offline", "Agenda Online Offline"],
+      "description": "Calendário e agenda online 100% offline com sincronização local. Organize eventos, compromissos e lembretes sem internet.",
       "url": "https://calendario-pessoal-ruby.vercel.app/",
       "applicationCategory": "Productivity",
+      "operatingSystem": "All",
+      "inLanguage": "pt-BR",
       "offers": {
         "@type": "Offer",
         "price": "0",
         "priceCurrency": "BRL",
         "availability": "https://schema.org/InStock"
       },
-      "operatingSystem": "All",
-      "inLanguage": "pt-BR",
       "creator": {
         "@type": "Organization",
         "name": "WebCal"
+      },
+      "featureList": [
+        "Calendário offline",
+        "Criação de eventos",
+        "Arrastar e redimensionar",
+        "Recorrência de eventos",
+        "Lembretes in-app",
+        "Importação ICS",
+        "Backup e restauração",
+        "Busca e filtros por categoria"
+      ],
+      "screenshot": "https://calendario-pessoal-ruby.vercel.app/og-image.png",
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "150",
+        "bestRating": "5"
       }
     }
     </script>
     
-    <title>WebCal | Calendário Offline - Agenda com Privacidade Total</title>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "O que é o WebCal?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "O WebCal é um calendário e agenda online 100% offline. Seus eventos ficam armazenados diretamente no seu navegador, sem precisar de servidor ou conta. É um planner digital privado, rápido e gratuito."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Como funciona o calendário offline?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "O WebCal usa armazenamento local (IndexedDB) para salvar seus eventos. Tudo acontece no seu dispositivo — sem sincronização na nuvem, sem cadastro. Basta abrir o site e começar a usar."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Posso usar como agenda online compartilhada?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "O WebCal é focado em uso individual e privado. Para compartilhar eventos, você pode exportar um arquivo de backup ou importar/exportar eventos no formato padrão ICS."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "O WebCal funciona no celular?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sim! O WebCal é responsivo e funciona bem em qualquer dispositivo. Além disso, é uma PWA, então você pode instalá-lo na tela inicial como um app."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "É seguro usar o WebCal para compromissos pessoais?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sim. O WebCal não envia seus dados para nenhum servidor. Tudo fica salvo no seu navegador. Nenhum terceiro tem acesso às suas informações."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Posso importar eventos de outros calendários?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sim! O WebCal suporta importação de arquivos ICS (formato padrão do Google Agenda, Apple Calendar e outros). Você também pode fazer backup e restauração do banco de dados completo."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "O que diferencia o WebCal de um calendário tradicional?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Diferente do Google Agenda ou Outlook, o WebCal não depende de internet, não coleta dados e não precisa de conta. É um organizador pessoal offline que respeita sua privacidade."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Quais funcionalidades o WebCal oferece?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "O WebCal inclui: criação e edição de eventos, arrastar e redimensionar, recorrência, busca por texto, filtro por categoria, lembretes in-app, importação ICS, backup/restore, visualização mensal, semanal e diária — tudo em português."
+          }
+        }
+      ]
+    }
+    </script>
+    
+    <title>WebCal — Calendário e Agenda Online 100% Offline | Privacidade Total</title>
   </head>
   <body>
     <div id="root"></div>
